@@ -1,0 +1,38 @@
+{
+	"name": "@gongt/silly-express",
+	"version": "0.0.1",
+	"description": "a very sb package",
+	"bin": {
+		"boot": "dist/boot/default.js"
+	},
+	"scripts": {
+		"start": "./scripts/start.sh",
+		"test": "./scripts/test.sh"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/GongT/sillyB.git"
+	},
+	"keywords": [
+		"library"
+	],
+	"engines": {
+		"node": ">=8",
+		"npm": ">4"
+	},
+	"author": "GongT <gongteng524702837@gmail.com>",
+	"license": "MIT",
+	"homepage": "https://github.com/GongT/sillyB#readme",
+	"devDependencies": {
+		"@types/chokidar": "^1.7.5",
+		"@types/fs-extra": "^5.0.2",
+		"@types/node": "^9.6.5",
+		"dtsgen": "0.0.5",
+		"node-crc": "^1.2.2",
+		"typescript": "^2.8.1"
+	},
+	"dependencies": {
+		"@gongt/silly-b": ">=0.0.1",
+		"fs-extra": ">=5.0.0"
+	}
+}
