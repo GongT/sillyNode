@@ -1,7 +1,7 @@
 {
-	"name": "@gongt/silly-express",
+	"name": "@gongt/silly-node",
 	"version": "0.0.1",
-	"description": "a very sb package",
+	"description": "a very sb node.js package",
 	"bin": {
 		"boot": "dist/boot/default.js"
 	},
@@ -11,7 +11,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/GongT/sillyB.git"
+		"url": "git+https://github.com/GongT/sillyNode.git"
 	},
 	"keywords": [
 		"library"
@@ -22,7 +22,7 @@
 	},
 	"author": "GongT <gongteng524702837@gmail.com>",
 	"license": "MIT",
-	"homepage": "https://github.com/GongT/sillyB#readme",
+	"homepage": "https://github.com/GongT/sillyNode#readme",
 	"devDependencies": {
 		"@types/chokidar": "^1.7.5",
 		"@types/fs-extra": "^5.0.2",
