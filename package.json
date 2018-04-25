@@ -1,12 +1,10 @@
 {
 	"name": "@gongt/silly-node",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "a very sb node.js package",
-	"bin": {
-		"boot": "dist/boot/default.js"
-	},
 	"scripts": {
-		"start": "./scripts/start.sh",
+		"start": "bash ./scripts/start.sh",
+		"prepublishOnly": "bash ./scripts/prepublish.sh",
 		"test": "./scripts/test.sh"
 	},
 	"repository": {
@@ -27,12 +25,12 @@
 		"@types/chokidar": "^1.7.5",
 		"@types/fs-extra": "^5.0.2",
 		"@types/node": "^9.6.5",
-		"dtsgen": "0.0.5",
 		"node-crc": "^1.2.2",
+		"dtsgenerator": "^1.0.0",
 		"typescript": "^2.8.1"
 	},
 	"dependencies": {
-		"@gongt/silly-b": ">=0.0.1",
+		"@gongt/silly-b": ">=0.0.3",
 		"fs-extra": ">=5.0.0"
 	}
 }

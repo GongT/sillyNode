@@ -1,7 +1,11 @@
-import { createLogger } from '@gongt/silly-b/dist/debug/create-logger';
-import { LOG_LEVEL } from '@gongt/silly-b/dist/debug/levels';
+import { createLogger } from '../../../sillyB/dist/debug/create-logger';
+import { LOG_LEVEL } from '../../../sillyB/dist/debug/levels';
 
-const sd = require('systemd-daemon');
+let sd: any;
+
+export function loadSystemdSubsystem() {
+	sd = require('systemd-daemon');
+}
 
 const debug = createLogger(LOG_LEVEL.INFO, 'daemon-notify');
 const error = createLogger(LOG_LEVEL.ERROR, 'daemon-notify');
@@ -23,9 +27,6 @@ export function NotifyInitCompleteEvent() {
 	}
 	statusIsComplete = true;
 	try {
-		console.log('NOTIFY_SOCKET=%s', process.env.NOTIFY_SOCKET);
-		console.log('WATCHDOG_USEC=%s', process.env.WATCHDOG_USEC);
-		console.log('WATCHDOG_PID=%s', process.env.WATCHDOG_PID);
 		sd.watchdog.start();
 		sd.notify('READY=1');
 		sd.notify('MAINPID=' + process.pid);

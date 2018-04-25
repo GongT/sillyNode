@@ -1,80 +1,22 @@
-import { QueueWait } from '@gongt/silly-b/dist/async/queue-wait';
+import { closeAll } from './global-work';
+import { inspect } from 'util';
 
-declare const global: any;
+let originalExit: (code: number) => never;
 
-export interface IClosablePromise {
-	close(): void|PromiseLike<void>;
-}
-
-export interface IClosableCallback {
-	close(callback: Function): void;
-}
-
-const closableRegistrySymbol = Symbol.for('@gongt/ts-stl:closableRegistryMap');
-if (!global[closableRegistrySymbol]) {
-	global[closableRegistrySymbol] = new Map();
-}
-const closableRegistry: Map<string, IClosablePromise> = global[closableRegistrySymbol];
-
-function shutdownTimeout() {
-	return new Promise((resolve, reject) => {
-		setTimeout(() => {
-			reject(new Error('shutdown timeout'));
-		}, 50000); // 50s before kill
-	});
-}
-
-export function globalWorkingCallback(id: string, object: IClosableCallback) {
-	const originalClose = object.close;
-	object.close = function (this: any, func: Function) {
-		return new Promise((resolve, reject) => {
-			const wrappedCallback = (err: Error, data: any) => err? reject(err) : resolve(data);
-			
-			originalClose.call(this, (err: Error, data: any) => {
-				wrappedCallback(err, data);
-				if (func) {
-					func(err, data);
-				}
-			});
-		});
-	};
-	globalWorking(id, object as IClosablePromise);
-}
-
-export function globalWorking(id: string, object: IClosablePromise) {
-	if (closableRegistry.has(id)) {
-		throw new Error('closable object ' + id + ' already registered.');
-	}
-	const originalClose = object.close;
-	object.close = function (this: any, ...args: any[]) {
-		closableRegistry.delete(id);
-		return Promise.race([
-			originalClose.apply(this, args),
-			shutdownTimeout(),
-		]);
-	};
-	closableRegistry.set(id, object);
-}
-
-export async function graceFullExit(ret = 0): Promise<never> {
+export function graceFullExit(ret = 0): never {
 	process.Terminate('manual call');
-	process.exit(ret);
-	throw new Error('impossible');
+	return originalExit(ret);
 }
 
-let exitCalled = false;
-// do something when app is closing
-if (!process.Terminate) {
-	class ProcessExit extends Error {
-		public readonly processExit = true;
+export function registerGracefullyExit() {
+	if (process.Terminate) {
+		throw new Error('process.Terminate already exists');
 	}
+	originalExit = process.exit;
 	
-	const originalExit = process.exit;
 	console.error('process.exit() patched.');
 	process.exit = function (code?: number): never {
-		if (exitCalled) {
-			originalExit();
-		} else {
+		if (!exitCalled) {
 			doExit('process.exit call');
 		}
 		console.trace('process.exit() call with:', ...Array.prototype.slice.call(arguments));
@@ -82,7 +24,7 @@ if (!process.Terminate) {
 	};
 	process.on('exit', (code) => {
 		console.error(`process.exit(${code}) has called.`);
-		if (!exitCalled) {
+		if (!exitCalled && code !== 0) {
 			let codes = '';
 			if (code) {
 				codes = code.toFixed();
@@ -100,61 +42,71 @@ if (!process.Terminate) {
 ##################################################
 `, new Array(4 - codes.length).fill(' ').join(''), codes);
 		}
+		originalExit(code);
 	});
 	
 	//catches ctrl+c event
-	process.on('SIGINT', doExit.bind(undefined, 'SIGINT'));
-	process.on('SIGTERM', doExit.bind(undefined, 'SIGTERM'));
-	process.on('beforeExit', doExit.bind(undefined, 'beforeExit'));
+	process.on('SIGINT', () => doExit('SIGINT'));
+	process.on('SIGTERM', () => doExit('SIGTERM'));
 	
 	// catches "kill pid" (for example: nodemon restart)
-	process.on('SIGUSR1', doExit.bind(undefined, 'SIGUSR1'));
-	process.on('SIGUSR2', doExit.bind(undefined, 'SIGUSR2'));
+	process.on('SIGUSR1', () => doExit('SIGUSR1'));
+	process.on('SIGUSR2', () => doExit('SIGUSR2'));
 	
 	// catches uncaught exceptions
-	process.on('uncaughtException', doExit.bind(undefined, 'uncaughtException'));
-	
-	process.Terminate = doExit;
-	
-	function doExit(why: string) {
-		console.log('will exit because %s.', why);
-		if (exitCalled) {
-			console.log('    handler already called.');
-			return;
+	const errorHandler = (prefix: string, reason: Error|any) => {
+		if (reason && reason.message) {
+			doExit(prefix + ': ' + reason.message);
+		} else {
+			doExit(inspect(prefix + ': %j', reason));
 		}
-		exitCalled = true;
-		let ret = 0;
-		
-		const wait = new QueueWait('exitQueue');
-		
-		for (const [key, closer] of [...closableRegistry.entries()]) {
-			console.log('closing %s...', key);
-			const p = closer.close();
-			if (p && p.then) {
-				wait.push();
-				p.then(() => {
-					wait.pop();
-					console.log('closed %s !!!', key);
-				}, (e) => {
-					wait.pop();
-					ret++;
-					console.error('exception when closing %s:\n%s', key, e.stack);
-				});
-			}
+	};
+	process.on('uncaughtException', errorHandler.bind(null, 'uncaughtException'));
+	process.on('unhandledRejection', errorHandler.bind(null, 'unhandledRejection'));
+	
+	process.Terminate = doExit as any;
+	process.ForceTerminate = (why: string): never => {
+		console.log('force terminate process: %s', why);
+		return originalExit(1);
+	};
+}
+
+export class ProcessExit extends Error {
+	public readonly processExit = true;
+}
+
+let exitCalled = false;
+let sigint = 0;
+
+function doExit(why: string): Promise<never> {
+	console.log('will exit because %s.', why);
+	if (why === 'SIGINT') {
+		sigint++;
+		if (sigint >= 3) {
+			console.log(' kill by Ctrl+C');
+			process.kill(process.pid, 'SIGKILL');
+		} else {
+			console.log(' press %s Ctrl+C to kill.');
 		}
-		wait.lock();
-		
-		wait.wait().then(() => {
-			console.log('will terminate process with code: %s.', ret);
+	}
+	if (exitCalled) {
+		console.log('    handler already called.');
+		return;
+	}
+	exitCalled = true;
+	
+	return closeAll().then((errorCount) => {
+		console.log('will terminate process with code: %s.', errorCount);
+		return errorCount;
+	}, (err) => {
+		// in fact, error will never occur
+		console.log('will terminate process with error:\n%s', err.stack);
+		return err.code || 1;
+	}).then((code) => {
+		return new Promise((resolve) => {
 			setImmediate(() => {
-				originalExit(ret);
-			});
-		}, (err) => {
-			// error will never occur
-			console.log('will terminate process with error:\n%s', err.stack);
-			setImmediate(() => {
-				originalExit(err.code || 1);
+				resolve(code);
 			});
 		});
-	}
+	}).then(originalExit);
 }

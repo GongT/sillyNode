@@ -1,12 +1,12 @@
-import {existsSync, readFileSync, writeFileSync} from "fs";
-import {mkdirpSync, pathExistsSync} from "fs-extra";
-import {dirname} from "path";
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirpSync, pathExistsSync } from 'fs-extra';
+import { dirname } from 'path';
+import { createLogger, IDebuggerLogger } from '@gongt/silly-b/dist/debug/create-logger';
+import { LOG_LEVEL } from '@gongt/silly-b/dist/debug/levels';
 
-export type BufferEncoding = "buffer"|"utf8";
+export type BufferEncoding = 'buffer'|'utf8';
 
 export abstract class MemoryFile<ContentType> {
-	protected _content: ContentType;
-	
 	constructor(fileContent?: string) {
 		if (fileContent) {
 			this._content = this.parse_file(fileContent);
@@ -19,10 +19,6 @@ export abstract class MemoryFile<ContentType> {
 		this._content = content;
 	}
 	
-	get content(): ContentType {
-		return this._content;
-	}
-	
 	toString() {
 		return this.stringify_file();
 	}
@@ -32,16 +28,20 @@ export abstract class MemoryFile<ContentType> {
 	protected abstract parse_file(content: string): ContentType;
 	
 	protected abstract stringify_file(): string;
+	
+	protected _content: ContentType;
+	
+	get content(): ContentType {
+		return this._content;
+	}
 }
 
 export abstract class BaseFile<ContentType> extends MemoryFile<ContentType> {
-	protected _fileName: string;
+	protected _charset: string;
 	protected _create: boolean;
 	protected _exists: boolean;
-	protected _charset: string;
 	private _old_content: string;
-	
-	public logger = console.error;
+	protected logger: IDebuggerLogger;
 	
 	constructor(fileName: string);
 	constructor(fileName: string, charset: BufferEncoding, create: boolean);
@@ -49,6 +49,9 @@ export abstract class BaseFile<ContentType> extends MemoryFile<ContentType> {
 	constructor(fileName: string, create: boolean);
 	constructor(fileName: string, charset: BufferEncoding|boolean = 'utf8', create: boolean = false) {
 		super();
+		
+		this.logger = createLogger(LOG_LEVEL.SILLY, this.constructor.name);
+		
 		this._fileName = fileName;
 		if (typeof charset === 'boolean') {
 			create = charset;
@@ -59,6 +62,10 @@ export abstract class BaseFile<ContentType> extends MemoryFile<ContentType> {
 		this._charset = charset;
 		
 		this.reload();
+	}
+	
+	exists() {
+		return this._exists;
 	}
 	
 	reload() {
@@ -74,17 +81,13 @@ export abstract class BaseFile<ContentType> extends MemoryFile<ContentType> {
 		}
 	}
 	
-	exists() {
-		return this._exists;
-	}
-	
 	write() {
 		this.logger('\x1B[2msaving file %s...\x1B[0m', this._fileName);
 		let content;
 		try {
 			content = this.stringify_file();
 		} catch (e) {
-			this.logger(this._content);
+			this.logger('%j', this._content);
 			throw new Error(`can't stringify file content, file: ${this._fileName}.`);
 		}
 		
@@ -113,6 +116,8 @@ export abstract class BaseFile<ContentType> extends MemoryFile<ContentType> {
 		this.logger('  writeTo file: %s', otherFilePath);
 		writeFileSync(otherFilePath, newContent, {encoding: 'utf8'});
 	}
+	
+	protected _fileName: string;
 	
 	get fileName() {
 		return this._fileName;

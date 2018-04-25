@@ -1,3 +1,5 @@
+/// <reference path="./schema/packagejson.d.ts"/>
+
 import { ConfigJsonFile } from './config-json-file';
 
 export interface JspmPackageConfig {
